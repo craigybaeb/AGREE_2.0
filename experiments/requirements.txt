@@ -1,0 +1,11 @@
+# Third-party imports for data handling and visualization
+numpy
+pandas
+matplotlib
+seaborn
+
+# Machine learning and neural network imports
+scikit-learn
+scipy
+keras
+tensorflow==2.14.0
