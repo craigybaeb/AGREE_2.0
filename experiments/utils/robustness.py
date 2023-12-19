@@ -2,6 +2,8 @@ import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from scipy.spatial import distance
 import matplotlib.pyplot as plt
+from scipy.stats import spearmanr
+
 
 class Robustness:
     def __init__(self):
@@ -9,7 +11,7 @@ class Robustness:
 
     def linear_interpolate(self, query_sample, farthest_neighbor, num_steps=50):
         interpolated_samples = np.zeros((num_steps, query_sample.shape[1]))
-        for step in range(1, num_steps):
+        for step in range(num_steps):
             t = step / float(num_steps - 1)
             interpolated_samples[step] = query_sample + t * (farthest_neighbor - query_sample)
         return interpolated_samples
@@ -85,11 +87,13 @@ class Robustness:
         
         return perturbed_instances
 
-    def calculate_robustness(self, original_explanation, perturbed_explanations, distance_method="euclidean", weight=0.7, show=False):
+    def calculate_robustness(self, original_explanation, perturbed_explanations, distance_method="euclidean", weight=0.7, show=None):
         calculate_distance = distance.euclidean
 
         if(distance_method == "cosine"):
             calculate_distance = distance.cosine
+        elif(distance_method == "spearman"):
+            calculate_distance = lambda x, y: abs(spearmanr(x,y)['statistic'])
 
         distances = []
         for perturbed_explanation in perturbed_explanations:
