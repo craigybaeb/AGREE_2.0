@@ -114,7 +114,7 @@ class Robustness:
             # Normalize the weights
             normalized_weights = [w / sum_weights for w in weights]
 
-            normalized_distances = [normalized_distances[i] * normalized_weights[i] for i in range(len(normalized_distances))]
+            normalized_distances = np.array([normalized_distances[i] * normalized_weights[i] for i in range(len(normalized_distances))])
 
         # Calculate the similarity using 1 - normalized distance
         similarities = 1 - normalized_distances
