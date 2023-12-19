@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
+from scipy.spatial import distance
 
 class Robustness:
     def __init__(self):
@@ -82,4 +83,50 @@ class Robustness:
             perturbed_instances.append(perturbations)
         
         return perturbed_instances
+
+    def calculate_robustness(self, original_explanation, perturbed_explanations, distance_method="euclidean", weight=0.7):
+        calculate_distance = distance.euclidean
+
+        if(distance_method == "cosine"):
+            calculate_distance = distance.cosine
+
+        distances = []
+        for perturbed_explanation in range(len(perturbed_explanations)):
+            explanation_distance = calculate_distance(original_explanation, perturbed_explanation)
+            distances.append(explanation_distance)
+
+
+        distances = np.array(distances)
+
+        # Calculate the minimum and maximum distances
+        min_distance = np.min(distances)
+        max_distance = np.max(distances)
+
+        # Normalize the distances
+        normalized_distances = (distances - min_distance) / (max_distance - min_distance)
+
+        if(weight > 0):
+            # Calculate the weights using exponential decay based on the index
+            weights = [np.exp(-weight * (i + 1)) for i in range(len(perturbed_explanations))]
+            # Calculate the sum of the unnormalized weights
+            sum_weights = sum(weights)
+
+            # Normalize the weights
+            normalized_weights = [w / sum_weights for w in weights]
+
+            normalized_distances = [normalized_distances[i] * normalized_weights[i] for i in range(len(normalized_distances))]
+
+        # Calculate the similarity using 1 - normalized distance
+        similarities = 1 - normalized_distances
+
+        # Create an array of x-values
+        x_values = np.linspace(0, 1, len(similarities))
+
+        # Calculate AUC using the trapezoidal rule
+        auc = np.trapz(similarities, x=x_values)
+
+        return auc
+
+
+        
 
