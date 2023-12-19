@@ -398,7 +398,7 @@ class Explanation():
                 instance_perturbations = self.robustness.generate_perturbations(instance_to_explain, model, X)
                 instance_perturbed_predictions = model.predict(instance_perturbations)
 
-                perturbations.append(instance_perturbations)
+                perturbations.append(instance_perturbations[0])
                 perturbed_predictions.append(np.array(instance_perturbed_predictions).argmax(axis=1))
 
                 # Create dictionaries to store the explanations
@@ -412,10 +412,10 @@ class Explanation():
                         for j, instance in enumerate(data_to_explain):
                             show = True
 
-                        if(j > 0):
-                            show = False
-                        instance_perturbed_explanations = self.get_deep_shap_explanations(X_train, perturbations[j], perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
-                        perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_deep_shap_explanations(X_train, perturbations[j], perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
 
                     elif(explainer == "gradient_shap"):
                         print('Getting Gradient SHAP explanations...')
