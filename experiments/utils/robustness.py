@@ -87,13 +87,23 @@ class Robustness:
         
         return perturbed_instances
 
+    def kendall_tau_distance(self, values1, values2):
+        n = len(values1)
+        assert len(values2) == n, "Both lists have to be of equal length"
+        i, j = np.meshgrid(np.arange(n), np.arange(n))
+        a = np.argsort(values1)
+        b = np.argsort(values2)
+        ndisordered = np.logical_or(np.logical_and(a[i] < a[j], b[i] > b[j]), np.logical_and(a[i] > a[j], b[i] < b[j])).sum()
+        
+        return ndisordered / (n * (n - 1))
+
     def calculate_robustness(self, original_explanation, perturbed_explanations, distance_method="euclidean", weight=0.7, show=None):
         calculate_distance = distance.euclidean
 
         if(distance_method == "cosine"):
             calculate_distance = distance.cosine
-        elif(distance_method == "spearman"):
-            calculate_distance = lambda x, y: abs(spearmanr(x,y)[0])
+        elif(distance_method == "kendall"):
+            calculate_distance = self.kendall_tau_distance
 
         distances = []
         for perturbed_explanation in perturbed_explanations:
