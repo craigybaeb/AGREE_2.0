@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 from scipy.spatial import distance
+import matplotlib.pyplot as plt
 
 class Robustness:
     def __init__(self):
@@ -126,6 +127,17 @@ class Robustness:
         auc = np.trapz(similarities, x=x_values)
 
         return auc
+    
+    def plot_robustness_curve(self, x, y, similarity=True):
+        plt.plot(x, y)
+        plt.xlabel("Perturbation")
+        if(similarity):
+            plt.ylabel("Similarity")
+        else:
+            plt.ylabel("Distance")
+        plt.show()
+
+        return
 
 
         
