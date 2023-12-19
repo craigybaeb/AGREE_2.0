@@ -388,8 +388,12 @@ class Explanation():
                 data_to_explain = X_test_correct[random_row_indices, :]
 
             perturbations = self.robustness.generate_perturbations(data_to_explain, model, X)
-            perturbed_predictions = np.array(perturbations).argmax(axis=1)
 
+            perturbed_predictions = []
+            for i, _ in enumerate(data_to_explain):
+                instance_perturbed_predictions = model.predict(perturbations[i])
+                instance_predictions = np.array(instance_perturbed_predictions).argmax(axis=1)
+                perturbed_predictions.append(instance_predictions)
 
             # Create dictionaries to store the explanations
             explanations = {explainer: [] for explainer in self.explainers_to_use}
