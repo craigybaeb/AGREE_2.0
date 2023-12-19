@@ -98,17 +98,6 @@ class Robustness:
 
         distances = np.array(distances)
 
-        if(weight > 0):
-            # Calculate the weights using exponential decay based on the index
-            weights = [np.exp(-weight * (i + 1)) for i in range(len(perturbed_explanations))]
-            # Calculate the sum of the unnormalized weights
-            sum_weights = sum(weights)
-
-            # Normalize the weights
-            normalized_weights = [w / sum_weights for w in weights]
-
-            distances = np.array([distances[i] * normalized_weights[i] for i in range(len(distances))])
-
         # Calculate the minimum and maximum distances
         min_distance = np.min(distances)
         max_distance = np.max(distances)
@@ -118,6 +107,17 @@ class Robustness:
 
         # Calculate the similarity using 1 - normalized distance
         similarities = 1 - normalized_distances
+
+        if(weight > 0):
+            # Calculate the weights using exponential decay based on the index
+            weights = [np.exp(-weight * (i + 1)) for i in range(len(perturbed_explanations))]
+            # Calculate the sum of the unnormalized weights
+            sum_weights = sum(weights)
+
+            # Normalize the weights
+            normalized_weights = [w / sum_weights for w in weights]
+
+            similarities = np.array([similarities[i] * normalized_weights[i] for i in range(len(similarities))])
 
         # Create an array of x-values
         x_values = np.linspace(0, 1, len(similarities))
