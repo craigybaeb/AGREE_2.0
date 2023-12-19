@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
 import tensorflow as tf
-from robustness import Robustness
+from utils.robustness import Robustness
 
 class Explanation():
     def __init__(self, feature_names, class_labels, explainers_to_use, num_features, filepath):
