@@ -85,7 +85,7 @@ class Robustness:
         
         return perturbed_instances
 
-    def calculate_robustness(self, original_explanation, perturbed_explanations, distance_method="euclidean", weight=0.7):
+    def calculate_robustness(self, original_explanation, perturbed_explanations, distance_method="euclidean", weight=0.7, show=False):
         calculate_distance = distance.euclidean
 
         if(distance_method == "cosine"):
@@ -120,6 +120,11 @@ class Robustness:
         # Calculate the similarity using 1 - normalized distance
         similarities = 1 - normalized_distances
 
+        if(show == "similarity"):
+            self.plot_robustness_curve(list(range(1,len(similarities)+1)), similarities, True)
+        elif(show == "distance"):
+            self.plot_robustness_curve(list(range(1,len(normalized_distances)+1)), normalized_distances, False)
+        
         # Create an array of x-values
         x_values = np.linspace(0, 1, len(similarities))
 
