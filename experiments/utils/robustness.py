@@ -91,7 +91,7 @@ class Robustness:
             calculate_distance = distance.cosine
 
         distances = []
-        for perturbed_explanation in range(len(perturbed_explanations)):
+        for perturbed_explanation in perturbed_explanations:
             explanation_distance = calculate_distance(original_explanation, perturbed_explanation)
             distances.append(explanation_distance)
 
