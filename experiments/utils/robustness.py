@@ -8,7 +8,7 @@ class Robustness:
 
     def linear_interpolate(self, query_sample, farthest_neighbor, num_steps=50):
         interpolated_samples = np.zeros((num_steps, query_sample.shape[1]))
-        for step in range(num_steps):
+        for step in range(1, num_steps):
             t = step / float(num_steps - 1)
             interpolated_samples[step] = query_sample + t * (farthest_neighbor - query_sample)
         return interpolated_samples
@@ -98,13 +98,6 @@ class Robustness:
 
         distances = np.array(distances)
 
-        # Calculate the minimum and maximum distances
-        min_distance = np.min(distances)
-        max_distance = np.max(distances)
-
-        # Normalize the distances
-        normalized_distances = (distances - min_distance) / (max_distance - min_distance)
-
         if(weight > 0):
             # Calculate the weights using exponential decay based on the index
             weights = [np.exp(-weight * (i + 1)) for i in range(len(perturbed_explanations))]
@@ -114,7 +107,14 @@ class Robustness:
             # Normalize the weights
             normalized_weights = [w / sum_weights for w in weights]
 
-            normalized_distances = np.array([normalized_distances[i] * normalized_weights[i] for i in range(len(normalized_distances))])
+            distances = np.array([distances[i] * normalized_weights[i] for i in range(len(distances))])
+
+        # Calculate the minimum and maximum distances
+        min_distance = np.min(distances)
+        max_distance = np.max(distances)
+
+        # Normalize the distances
+        normalized_distances = (distances - min_distance) / (max_distance - min_distance)
 
         # Calculate the similarity using 1 - normalized distance
         similarities = 1 - normalized_distances
