@@ -540,3 +540,5 @@ class Explanation():
                 self.save_explanation_state(data_to_save, filepath)
 
                 print(f"--------------------------------------------------------------------")
+        
+        return explanations_outer, perturbed_explanations_outer
