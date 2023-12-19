@@ -8,13 +8,20 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+import pickle
+import tensorflow as tf
+from robustness import Robustness
 
 class Explanation():
-    def __init__(self, feature_names, class_labels, explainers_to_use, num_features):
+    def __init__(self, feature_names, class_labels, explainers_to_use, num_features, filepath):
         self.feature_names = feature_names
         self.class_labels = class_labels
         self.explainers_to_use = explainers_to_use
         self.num_features = num_features
+        self.filepath = filepath
+
+        self.robustness = Robustness()
+        
 
     def get_predict_function(self, model):
         # We need to define a function to turn the probabilities into predictions for Kernel SHAP
@@ -329,5 +336,207 @@ class Explanation():
 
         return integrated_gradients
     
+    def save_explanation_state(self, data_to_save, filepath):
+        with open(f'{filepath}/explanations/results/explanation_state.pkl', 'wb') as file:
+            pickle.dump(data_to_save, file)
+        print(f"Data saved to '{filepath}/explanations/results/explanation_state.pkl'")
 
+    def get_explanations(self, X, y, splits, filepath, repeat_predictions, checkpoint, num_explanations=1000, resume=False, example_index=0):
+        explanations_outer = []
+        perturbed_explanations_outer = []
 
+        for i, (train_index, test_index) in enumerate(splits):
+
+            if(checkpoint > i and resume):
+                print(f"Skipping split {i} as checkpoint exists in later iteration.")
+                continue
+
+            print(f"Starting fold {i}...")
+
+            # Split the data into training and testing sets
+            X_train, X_test = X[train_index], X[test_index]
+            _, y_test = y[train_index], y[test_index]
+
+            model = tf.keras.models.load_model(f'{filepath}/training/models/model_{i}.h5')
+
+            # Strip Softmax layer from model to enable the remainder explainer methods
+            model_without_softmax = innvestigate.model_wo_softmax(model)
+
+            predict_function = self.get_predict_function(model)
+
+            predictions = repeat_predictions[i]
+
+            example_instance_to_explain = example_index
+
+            # Filter out instances where the model's prediction matches the true label
+            correctly_predicted_indices = [i for i in range(len(y_test)) if np.array(y_test)[i] == predictions[i]]
+
+            # Create new arrays with only the correct instances
+            X_test_correct = np.array(X_test)[correctly_predicted_indices]
+            predicted_y_correct = np.array(predictions)[correctly_predicted_indices]
+
+            data_to_explain = X_test_correct
+
+            if(len(data_to_explain) > num_explanations):
+                # Get the number of rows in the 2D array (assuming each row is an instance)
+                num_rows = X.shape[0]
+
+                # Generate 1000 random row indices
+                random_row_indices = np.random.choice(num_rows, num_explanations, replace=False)
+
+                # Use the random row indices to select 1000 instances from the 2D array
+                data_to_explain = X_test_correct[random_row_indices, :]
+
+            perturbations = []
+            perturbed_predictions = []
+
+            for instance in data_to_explain:
+
+                # Select a sample from the test set
+                instance_to_explain = instance.reshape(1, -1)
+
+                instance_perturbations = self.robustness.generate_perturbations(instance_to_explain, model, X)
+                instance_perturbed_predictions = model.predict(instance_perturbations)
+
+                perturbations.append(instance_perturbations)
+                perturbed_predictions.append(np.array(instance_perturbed_predictions).argmax(axis=1))
+
+                # Create dictionaries to store the explanations
+                explanations = {explainer: [] for explainer in self.explainers_to_use}
+                perturbed_explanations = {explainer: [] for explainer in self.explainers_to_use}
+
+                for explainer in self.explainers_to_use:
+                    if(explainer == "deep_shap"):
+                        print('Getting Deep SHAP explanations...')
+                        explanations[explainer] = self.get_deep_shap_explanations(X_train, X_test_correct, predicted_y_correct, model, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                        if(j > 0):
+                            show = False
+                        instance_perturbed_explanations = self.get_deep_shap_explanations(X_train, perturbations[j], perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                    elif(explainer == "gradient_shap"):
+                        print('Getting Gradient SHAP explanations...')
+                        explanations[explainer] = self.get_gradient_shap_explanations(X_train, X_test_correct, predicted_y_correct, model, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_gradient_shap_explanations(X_train, perturbations[j], perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "lime"):
+                        print('Getting LIME explanations...')
+                        explanations[explainer] = self.get_lime_explanations(X_train, X_test_correct, model, self.feature_names, self.class_labels, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_lime_explanations(X_train, perturbations[j], model, self.feature_names, self.class_labels, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "kernel_shap"):
+                        print('Getting Kernel SHAP explanations...')
+                        explanations[explainer] = self.get_kernel_shap_explanations(X_train, X_test_correct, predict_function, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_kernel_shap_explanations(X_train, perturbations[j], predict_function, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "maple"):
+                        print('Getting MAPLE explanations...')
+                        explanations[explainer] = self.get_maple_explanations(X_train, X_test_correct, predict_function, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_maple_explanations(X_train, perturbations[j], predict_function, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "smoothgrad"):
+                        print('Getting Smoothgrad explanations...')
+                        explanations[explainer] = self.get_smoothgrad_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instaifnce in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_smoothgrad_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "vanilla_gradients"):
+                        print('Getting Vanilla Gradients explanations...')
+                        explanations[explainer] = self.get_vanilla_gradients_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_vanilla_gradients_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "guided_backpropagation"):
+                        print('Getting Guided Backpropagation explanations...')
+                        explanations[explainer] = self.get_guided_backpropagation_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_guided_backpropagation_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "layerwise_relevance_propagation"):
+                        print('Getting Layerwise Relevance Propagation explanations...')
+                        explanations[explainer] = self.get_layerwise_relevance_propagation_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_layerwise_relevance_propagation_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, perturbed=True, show=show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "gradients_x_input"):
+                        print('Getting Gradients x Input explanations...')
+                        explanations[explainer] = self.get_gradients_x_input_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_gradients_x_input_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "deep_taylor"):
+                        print('Getting Deep Taylor Decomposition explanations...')
+                        explanations[explainer] = self.get_deep_taylor_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_deep_taylor_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+                    elif(explainer == "integrated_gradients"):
+                        print('Getting Integrated Gradients explanations...')
+                        explanations[explainer] = self.get_integrated_gradients_explanations(X_test_correct, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
+                        for j, instance in enumerate(data_to_explain):
+                            show = True
+
+                            if(j > 0):
+                                show = False
+                            instance_perturbed_explanations = self.get_integrated_gradients_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, perturbed=True, show=show)
+                            perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                explanations_outer.append(explanations)
+                perturbed_explanations_outer.append(perturbed_explanations)
+
+                data_to_save = {
+                    'checkpoint': i,
+                    'explanations': explanations_outer,
+                    'perturbed_explanations': perturbed_explanations_outer
+                }
+
+                self.save_explanation_state(data_to_save, filepath)
+
+                print(f"--------------------------------------------------------------------")
