@@ -93,7 +93,7 @@ class Robustness:
         if(distance_method == "cosine"):
             calculate_distance = distance.cosine
         elif(distance_method == "spearman"):
-            calculate_distance = lambda x, y: abs(spearmanr(x,y)['statistic'])
+            calculate_distance = lambda x, y: abs(spearmanr(x,y)[0])
 
         distances = []
         for perturbed_explanation in perturbed_explanations:
