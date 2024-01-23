@@ -112,7 +112,7 @@ def load_saved_state(filepath, resume, outer_loops):
         return None
     
 # Function to plot training and validation loss and accuracy
-def plot_training_validation_metrics(training_loss, validation_loss, training_accuracy, validation_accuracy, fold_num, filepath):
+def plot_training_validation_metrics(training_loss, validation_loss, training_accuracy, validation_accuracy, fold_num, filepath, show=False):
     plt.figure(figsize=(12, 5))
 
     plt.subplot(1, 2, 1)
@@ -132,10 +132,12 @@ def plot_training_validation_metrics(training_loss, validation_loss, training_ac
     plt.legend()
 
     plt.savefig(f'{filepath}/training/figures/training_validation_fold_{fold_num}.png')
-    plt.show()
+
+    if(show):
+        plt.show()
 
 # Function to plot grid search scores
-def plot_grid_search_scores(param, distinct_values, data, filepath):
+def plot_grid_search_scores(param, distinct_values, data, filepath, show):
     plt.figure(figsize=(10, 6))
     sorted_values = sorted(list(distinct_values))
     param_indices = {v: i for i, v in enumerate(sorted_values)}
@@ -149,17 +151,21 @@ def plot_grid_search_scores(param, distinct_values, data, filepath):
     plt.title(f'Grid Search Scores by {param}')
     plt.legend()
     plt.savefig(f'{filepath}/training/figures/grid_search_scores_{param}.png')
-    plt.show()
+
+    if(show):
+        plt.show()
 
 # Function to plot confusion matrix
-def plot_confusion_matrix(cm, fold_num, filepath):
+def plot_confusion_matrix(cm, fold_num, filepath, show):
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='g', cmap='Blues')
     plt.title(f'Confusion Matrix for Outer Fold {fold_num}')
     plt.xlabel('Predicted labels')
     plt.ylabel('True labels')
     plt.savefig(f'{filepath}/training/figures/confusion_matrix_fold_{fold_num}.png')
-    plt.show()
+
+    if(show):
+        plt.show()
 
 # Function to log time-related information
 def log_time_info(fold_start_time, start_time, outer_fold):
@@ -174,7 +180,7 @@ def log_time_info(fold_start_time, start_time, outer_fold):
     print(f"Estimated remaining time: {estimated_remaining_time:.2f} seconds")
     print(f"Expected end time: {expected_end_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-def plot_metrics_variance(accuracy_scores, f1_scores, recall_scores, auc_scores, precision_scores, filepath):
+def plot_metrics_variance(accuracy_scores, f1_scores, recall_scores, auc_scores, precision_scores, filepath, show):
     # Organize the data into a DataFrame
     data = {
         'Accuracy': accuracy_scores,
@@ -197,7 +203,9 @@ def plot_metrics_variance(accuracy_scores, f1_scores, recall_scores, auc_scores,
     plt.title('Variance in Performance Metrics Between Best Estimators')
     plt.grid(True)
     plt.savefig(f'{filepath}/training/figures/metrics_variance_outer_loop.png')  # Save figure
-    plt.show()
+
+    if(show):
+        plt.show()
 
 def perform_grid_search(X, y, num_splits, num_classes, num_features, param_grid, filepath, seed=42, verbose=3):
     # Cross-Validation (Hyperparameter Tuning)
@@ -244,7 +252,7 @@ def perform_grid_search(X, y, num_splits, num_classes, num_features, param_grid,
         "all_scores": all_scores
     }
 
-    with open(f'{filepath}/training/grid_search_results.pkl', 'wb') as file:
+    with open(f'{filepath}/training/results/grid_search_results.pkl', 'wb') as file:
         pickle.dump(grid_search_data, file)
 
     return best_model, best_params
@@ -289,7 +297,9 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, num_splits_o
 
 
     # Perform the grid search
+    print("Starting grid search...")
     _, best_params = perform_grid_search(X, y, num_splits_inner, num_classes, num_features, param_grid, filepath)
+    print(f"Grid search complete. Best parameters found were: {best_params}")
 
     # Record the start time
     start_time = time.time()
