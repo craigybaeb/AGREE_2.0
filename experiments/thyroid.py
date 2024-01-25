@@ -1,6 +1,7 @@
 # Import the required packages
 
 # Explainers
+import pathlib
 import shap
 import lime
 import innvestigate # Smoothgrad, Vanilla Gradients, Input x Gradients, Layerwise Relevance Propagation, Guided Backpropagation, Deep Taylor
@@ -68,6 +69,30 @@ def extract_class(row):
     return 'unknown'
 
 def run_thyroid(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
+    # Hyperparameters to test
+    param_grid = {
+        'architecture': [(64,), (128,), (32, 32), (64, 32), (64, 32, 16), (32, 16, 8), (64, 16, 8), (32, 16, 8, 4), (32, 32, 32), (16, 16)],
+        'learning_rate': [0.001, 0.01, 0.0001]
+    }
+
+    tf.keras.utils.set_random_seed(seed)
+
+    # Create folders to save results
+    pathlib.Path(filepath).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/training/results').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/training/figures').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/training/models').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/explanations/results').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/explanations/figures').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/results/results').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/results/figures').mkdir(parents=True, exist_ok=True)
+    pathlib.Path(f'{filepath}/results/models').mkdir(parents=True, exist_ok=True)
+
+    # Multi-class classification
+    import ssl
+    # Ignore ssl certificate verification
+    ssl._create_default_https_context = ssl._create_unverified_context
+    
     # Multi-class classification
     thyroid = 'experiments/data/allbp.data' 
 
