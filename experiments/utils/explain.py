@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
 import pickle
+from sklearn.model_selection import train_test_split
 import tensorflow as tf
 from utils.robustness import Robustness
 
@@ -39,7 +40,7 @@ class Explanation():
             return np.array(predictions)
         return predict_function
     
-    def display_feature_importance(self, feature_names, feature_importance, filepath, explainer, fold_num, prediction, perturbed=False):
+    def display_feature_importance(self, feature_names, feature_importance, filepath, explainer, fold_num, prediction, perturbed=False, show=False):
         # Create a DataFrame to plot an example local Smoothgrad explanation
         df = pd.DataFrame({
             "Features": feature_names,
@@ -53,25 +54,29 @@ class Explanation():
         sns.barplot(y='Features', x='Feature Importance', data=df)
         if(perturbed):
             plt.title(f"Example {explainer} perturbed explanation (Instance {prediction}, Fold {fold_num})")
-            plt.show()
+            if(show):
+                plt.show()
             plt.savefig(f'{filepath}/explanations/figures/perturbed_feature_importance_{explainer}_fold_{fold_num}.png')
         else:
             plt.title(f"Example {explainer} explanation (Instance {prediction}, Fold {fold_num})")
-            plt.show()
+            if(show):
+                plt.show()
             plt.savefig(f'{filepath}/explanations/figures/feature_importance_{explainer}_fold_{fold_num}.png')
 
         return
     
-    def display_gradients(self, example, filepath, explainer, fold_num, prediction, perturbed=False):
+    def display_gradients(self, example, filepath, explainer, fold_num, prediction, perturbed=False, show=False):
         perturbed_tag = ""
         perturbed_path = ""
         if(perturbed):
             perturbed_tag = "perturbed"
             perturbed_path = "perturbed_"
 
-        plt.imshow(example, cmap='seismic', interpolation='nearest')
+        if(show):
+            plt.show()
         plt.title(f"Visualisation of {perturbed_tag} gradients using {explainer} (Instance {prediction}, Fold {fold_num})")
-        plt.show()
+        if(show):
+            plt.show()
         plt.savefig(f'{filepath}/explanations/figures/{perturbed_path}gradient_explanations{explainer}_fold_{fold_num}.png')
 
         return
@@ -121,7 +126,7 @@ class Explanation():
             if(perturbed):
                 perturbed_tag = "perturbed_"
             lime_explanation.as_pyplot_figure()
-            plt.show()
+            # plt.show()
             plt.savefig(f'{filepath}/explanations/figures/{perturbed_tag}lime_fold_{fold_num}.png')
 
             lime_explanation.show_in_notebook(show_table=True)
@@ -341,11 +346,11 @@ class Explanation():
             pickle.dump(data_to_save, file)
         print(f"Data saved to '{filepath}/explanations/results/explanation_state.pkl'")
 
-    def get_explanations(self, X, y, splits, filepath, repeat_predictions, checkpoint, num_explanations=1000, resume=False, example_index=0):
+    def get_explanations(self, X, y, seeds, filepath, repeat_predictions, checkpoint, num_explanations=100, resume=False, example_index=0):
         explanations_outer = []
         perturbed_explanations_outer = []
 
-        for i, (train_index, test_index) in enumerate(splits):
+        for i, seed in enumerate(seeds):
 
             if(checkpoint > i and resume):
                 print(f"Skipping split {i} as checkpoint exists in later iteration.")
@@ -354,8 +359,7 @@ class Explanation():
             print(f"Starting fold {i}...")
 
             # Split the data into training and testing sets
-            X_train, X_test = X[train_index], X[test_index]
-            _, y_test = y[train_index], y[test_index]
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42, stratify=y)
 
             model = tf.keras.models.load_model(f'{filepath}/training/models/model_{i}.h5')
 
@@ -379,7 +383,7 @@ class Explanation():
 
             if(len(data_to_explain) > num_explanations):
                 # Get the number of rows in the 2D array (assuming each row is an instance)
-                num_rows = X.shape[0]
+                num_rows = X_test_correct.shape[0]
 
                 # Generate 1000 random row indices
                 random_row_indices = np.random.choice(num_rows, num_explanations, replace=False)

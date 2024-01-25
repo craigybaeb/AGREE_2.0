@@ -11,7 +11,7 @@ import seaborn as sns
 
 # Machine learning and neural network imports
 from sklearn.datasets import load_iris
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.model_selection import StratifiedKFold, GridSearchCV, train_test_split
 from sklearn.metrics import (
     f1_score, roc_auc_score, recall_score, precision_score,
     accuracy_score, confusion_matrix, roc_curve
@@ -90,7 +90,7 @@ def param_to_string(param):
     return ', '.join([f"{key}: {value}" for key, value in param.items()])
 
 # Function to load saved state if it exists
-def load_saved_state(filepath, resume, outer_loops):
+def load_saved_state(filepath, resume, seeds):
     state_file = f'{filepath}/model_results_and_data.pkl'
     
     if resume:
@@ -98,7 +98,7 @@ def load_saved_state(filepath, resume, outer_loops):
         with open(state_file, 'rb') as file:
             saved_state = pickle.load(file)
 
-            if(saved_state['outer_fold'] < outer_loops):
+            if(saved_state['outer_fold'] < len(seeds)):
               print("Resuming from the last saved state.")
             else:
               raise Exception("Can't resume training, number of outer loops already exceeded.")
@@ -137,7 +137,7 @@ def plot_training_validation_metrics(training_loss, validation_loss, training_ac
         plt.show()
 
 # Function to plot grid search scores
-def plot_grid_search_scores(param, distinct_values, data, filepath, show):
+def plot_grid_search_scores(param, distinct_values, data, filepath, show=False):
     plt.figure(figsize=(10, 6))
     sorted_values = sorted(list(distinct_values))
     param_indices = {v: i for i, v in enumerate(sorted_values)}
@@ -156,7 +156,7 @@ def plot_grid_search_scores(param, distinct_values, data, filepath, show):
         plt.show()
 
 # Function to plot confusion matrix
-def plot_confusion_matrix(cm, fold_num, filepath, show):
+def plot_confusion_matrix(cm, fold_num, filepath, show=False):
     plt.figure(figsize=(8, 6))
     sns.heatmap(cm, annot=True, fmt='g', cmap='Blues')
     plt.title(f'Confusion Matrix for Outer Fold {fold_num}')
@@ -180,7 +180,7 @@ def log_time_info(fold_start_time, start_time, outer_fold):
     print(f"Estimated remaining time: {estimated_remaining_time:.2f} seconds")
     print(f"Expected end time: {expected_end_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-def plot_metrics_variance(accuracy_scores, f1_scores, recall_scores, auc_scores, precision_scores, filepath, show):
+def plot_metrics_variance(accuracy_scores, f1_scores, recall_scores, auc_scores, precision_scores, filepath, show=False):
     # Organize the data into a DataFrame
     data = {
         'Accuracy': accuracy_scores,
@@ -258,12 +258,10 @@ def perform_grid_search(X, y, num_splits, num_classes, num_features, param_grid,
     return best_model, best_params
 
 
-def perform_outer_cross_validation(X, y, num_classes, num_features, num_splits_outer, num_splits_inner, filepath, resume=True, verbose=1, seed=42, param_grid ={
+def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_splits_inner, filepath, resume=True, verbose=1, seed=42, param_grid ={
     'architecture': [(64,), (128,), (32, 32), (64, 32), (64, 32, 16), (32, 16, 8), (64, 16, 8), (32, 16, 8, 4), (32, 32, 32), (16, 16)],
     'learning_rate': [0.001, 0.01, 0.0001]
 }):
-    # Define the number of outer folds
-    outer_cv = StratifiedKFold(n_splits=num_splits_outer, shuffle=True, random_state=seed)
 
     # Initialize variables to store metrics and results
     accuracy_scores = []
@@ -280,7 +278,7 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, num_splits_o
     outer_fold = 1
 
     # Load saved state if resuming
-    saved_state = load_saved_state(filepath, resume, num_splits_outer)
+    saved_state = load_saved_state(filepath, resume, seeds)
     if saved_state:
         outer_fold = saved_state["outer_fold"] + 1
         accuracy_scores = saved_state["accuracy_scores"]
@@ -305,38 +303,34 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, num_splits_o
     start_time = time.time()
 
     # Loop through each outer fold
-    for train_index, test_index in (splits if splits and resume == True else outer_cv.split(X, y)):
+    for seed in seeds:
         # Check if resuming and some iterations have already been completed
         if outer_fold < len(splits) and resume == True:
             print(f"Skipping Outer Fold {outer_fold} (already completed)")
             outer_fold += 1
             continue
 
-        splits.append((train_index, test_index))
-
         # Record the start time of the current fold
         fold_start_time = time.time()
         print(f"Outer Fold {outer_fold}")
 
-        # Split the data into training and testing sets
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
+        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42, stratify=y)
 
         # Fitting with the best parameters from the grid search
         model = KerasClassifierWrapper(num_classes, num_features, **best_params)
 
         # Fit the model
-        model.fit(X_train, y_train)
+        model.fit(x_train, y_train)
 
         # Evaluate the model
-        y_pred = model.predict(X_test)
+        y_pred = model.predict(x_test)
         y_test_cat = to_categorical(y_test, num_classes=3)
 
         preds_outer.append(y_pred)
 
         # Calculate additional metrics
         f1 = f1_score(y_test, y_pred, average='weighted')
-        auc = roc_auc_score(y_test_cat, model.model.predict(X_test), multi_class='ovr')
+        auc = roc_auc_score(y_test_cat, model.model.predict(x_test), multi_class='ovr')
         recall = recall_score(y_test, y_pred, average='weighted')
         precision = precision_score(y_test, y_pred, average='weighted')
         accuracy = accuracy_score(y_test, y_pred)
