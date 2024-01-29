@@ -16,75 +16,34 @@ class Robustness:
             interpolated_samples[step] = query_sample + t * (farthest_neighbor - query_sample)
         return interpolated_samples
     
+    
     def generate_perturbations(self, data_to_explain, model, X):
         perturbed_instances = []
 
+        # Predict classes for the entire dataset
+        y_pred = np.array(model.predict(X)).squeeze()
+        y_pred_classes = y_pred.argmax(axis=1)
+
         for dte in data_to_explain:
+            # Get the class of the instance to explain
+            instance_class = model.predict(dte.reshape(1, -1)).argmax()
 
-            y_pred = np.array(model.predict(X)).squeeze()
-            y_pred_binary = y_pred.argmax(axis=1)
+            # Separate instances by class, excluding the class of the instance to explain
+            unlike_data = [X[i] for i in range(len(X)) if y_pred_classes[i] != instance_class]
 
-            # Step 7: Filter instances belonging to each class separately
-            class_0_instances = []
-            class_1_instances = []
-
-            for i in range(len(y_pred_binary)):
-                if y_pred_binary[i] == 0:
-                    class_0_instances.append(X[i])
-                else:
-                    class_1_instances.append(X[i])
-
-            # Select a sample from the test set
-            instance_to_explain = dte
-
-            instance_class = model.predict(instance_to_explain.reshape(1,-1)).argmax()
-            like_data = []
-            unlike_data = []
-
-            if(instance_class == 0):
-                like_data = class_0_instances
-                unlike_data = class_1_instances
-            else:
-                like_data = class_1_instances
-                unlike_data = class_0_instances
-
-            # Initialize NearestNeighbors
-            nn = NearestNeighbors(n_neighbors=len(like_data))
+            # Initialize NearestNeighbors for unlike data
             nun = NearestNeighbors(n_neighbors=len(unlike_data))
-
-            # Fit on training data
-            nn.fit(like_data)
             nun.fit(unlike_data)
 
-            # Find 5 nearest neighbors
-            distances, indices = nn.kneighbors(instance_to_explain.reshape(1,-1))
-            _, nun_indices = nun.kneighbors(instance_to_explain.reshape(1,-1))
-
-            distances = distances[0][1:]
-            indices = indices[0][1:]
-
-            # The farthest of the 5 nearest neighbors
-            farthest_neighbor_idx = indices
-            farthest_neighbors = [like_data[i] for i in farthest_neighbor_idx]
-
+            # Find the nearest unlike neighbor
+            _, nun_indices = nun.kneighbors(dte.reshape(1, -1))
             nun_idx = nun_indices[0][0]
             nun_instance = unlike_data[nun_idx]
 
-            nn_nun = NearestNeighbors(n_neighbors=len(like_data) - 2)
-
-            nn_nun.fit(farthest_neighbors)
-
-            nn_nun_distances, nn_nun_indices = nn_nun.kneighbors(nun_instance.reshape(1,-1))
-
-            nn_nun_distances = nn_nun_distances[0][1:]
-            nn_nun_indices = nn_nun_indices[0][1:]
-
-            nn_nun_idx = nn_nun_indices[0]
-            nn_nun_instance = farthest_neighbors[nn_nun_idx]
-
-            perturbations = self.linear_interpolate(dte.reshape(1,-1), nn_nun_instance, 30)
+            # Generate linear perturbations between the instance to explain and its nearest unlike neighbor
+            perturbations = self.linear_interpolate(dte.reshape(1, -1), nun_instance.reshape(1, -1), 30)
             perturbed_instances.append(perturbations)
-        
+
         return perturbed_instances
 
     def kendall_tau_distance(self, values1, values2):
@@ -129,7 +88,15 @@ class Robustness:
         max_distance = np.max(distances)
 
         # Normalize the distances
-        normalized_distances = (distances - min_distance) / (max_distance - min_distance)
+        normalized_distances = []
+        for d in distances: 
+            if(max_distance > min_distance):
+                normalized_distance = (d - min_distance) / (max_distance - min_distance)
+            else:
+                normalized_distance = 0
+            normalized_distances.append(normalized_distance)
+
+        normalized_distances = np.array(normalized_distances)
 
         # Calculate the similarity using 1 - normalized distance
         similarities = 1 - normalized_distances
