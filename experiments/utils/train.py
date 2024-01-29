@@ -324,13 +324,17 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
 
         # Evaluate the model
         y_pred = model.predict(x_test)
-        y_test_cat = to_categorical(y_test, num_classes=3)
+        y_test_cat = to_categorical(y_test, num_classes=num_classes)
 
         preds_outer.append(y_pred)
 
+        multi_class = 'raise'
+        if(num_classes > 2):
+            multi_class = 'ovr'
+
         # Calculate additional metrics
         f1 = f1_score(y_test, y_pred, average='weighted')
-        auc = roc_auc_score(y_test_cat, model.model.predict(x_test), multi_class='ovr')
+        auc = roc_auc_score(y_test_cat, model.model.predict(x_test), multi_class=multi_class)
         recall = recall_score(y_test, y_pred, average='weighted')
         precision = precision_score(y_test, y_pred, average='weighted')
         accuracy = accuracy_score(y_test, y_pred)
@@ -384,7 +388,8 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
             "train_scores": train_scores_outer,
             "predictions": preds_outer,
             "matrices": matrices,
-            "outer_fold": outer_fold
+            "outer_fold": outer_fold,
+            "data": (x_train, y_train, x_test, y_test)
         }
 
         # Save data to a file
