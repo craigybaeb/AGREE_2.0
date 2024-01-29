@@ -314,7 +314,7 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
         fold_start_time = time.time()
         print(f"Outer Fold {outer_fold}")
 
-        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42, stratify=y)
+        x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=seed, stratify=y)
 
         # Fitting with the best parameters from the grid search
         model = KerasClassifierWrapper(num_classes, num_features, **best_params)
