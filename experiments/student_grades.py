@@ -162,6 +162,10 @@ def run_student_grades(seeds, num_splits_optimisation, seed, verbose, num_explan
     smote = SMOTE(sampling_strategy='auto', random_state=42)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
+    x_resampled = x_resampled.to_numpy()
+    y_resampled = y_resampled.to_numpy()
+    
+    
     # Get the feature names excluding class
     feature_names = [col for col in dataset.columns if col != 'Target']
 

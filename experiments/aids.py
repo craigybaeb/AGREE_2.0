@@ -160,6 +160,9 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     smote = SMOTE(sampling_strategy='auto', random_state=seed)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
+    x_resampled = x_resampled.to_numpy()
+    y_resampled = y_resampled.to_numpy()
+    
     # Get the feature names excluding class
     feature_names = [col for col in dataset.columns if col != 'cid']
 

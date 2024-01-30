@@ -154,6 +154,9 @@ def run_mushroom(seeds, num_splits_optimisation, seed, verbose, num_explanations
     smote = SMOTE(sampling_strategy='auto', random_state=42)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
+    x_resampled = x_resampled.to_numpy()
+    y_resampled = y_resampled.to_numpy()
+    
     # Checking the class distribution has been corrected
 
     # Counting the number of instances in each class

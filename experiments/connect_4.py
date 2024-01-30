@@ -108,8 +108,9 @@ def run_connect_4(seeds, num_splits_optimisation, seed, verbose, num_explanation
     smote = SMOTE(sampling_strategy='auto', random_state=42)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
-    x_train, x_test, y_train, y_test = train_test_split(x_resampled, y_resampled, test_size=0.30, random_state=42, stratify=y_resampled)
-
+    x_resampled = x_resampled.to_numpy()
+    y_resampled = y_resampled.to_numpy()
+    
     num_classes = 3
     num_features = 42
 

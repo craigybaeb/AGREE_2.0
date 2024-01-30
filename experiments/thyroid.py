@@ -201,6 +201,10 @@ def run_thyroid(seeds, num_splits_optimisation, seed, verbose, num_explanations,
     smote = SMOTE(sampling_strategy='auto', random_state=seed)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
+    x_resampled = x_resampled.to_numpy()
+    y_resampled = y_resampled.to_numpy()
+    
+    
     num_features = 27
     num_classes = 3
 
