@@ -57,7 +57,7 @@ shap.explainers._deep.deep_tf.op_handlers["SplitV"] = shap.explainers._deep.deep
 
 import os
 
-def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
+def run_mushroom(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
     # Hyperparameters to test
     param_grid = {
         'architecture': [(64,), (128,), (32, 32), (64, 32), (64, 32, 16), (32, 16, 8), (64, 16, 8), (32, 16, 8, 4), (32, 32, 32), (16, 16)],
@@ -65,7 +65,7 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     }
 
     # Set constants
-    filepath = 'experiments/results/aids'  # Filepath for saving data
+    filepath = 'experiments/results/mushroom'  # Filepath for saving data
     
     tf.keras.utils.set_random_seed(seed)
 
@@ -80,32 +80,17 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     pathlib.Path(f'{filepath}/results/figures').mkdir(parents=True, exist_ok=True)
     pathlib.Path(f'{filepath}/results/models').mkdir(parents=True, exist_ok=True)
 
-    # Multi-class classification
-    import ssl
-    # Ignore ssl certificate verification
-    ssl._create_default_https_context = ssl._create_unverified_context
-    
-    # Fetch dataset
-    aids = fetch_ucirepo(id=890)
+    # Binary classification
+    mushroom = '/content/mushroom.csv'
 
-    # Data (as pandas dataframes)
-    x = aids.data.features
-    y = aids.data.targets
-
-    # Join the data
-    aids_df = pd.concat([x, y], axis=1)
+    # Load the data from GitHub
+    mushroom_df = pd.read_csv(mushroom, sep=";")
 
     # Re-name the dataset to plug-and-play with notebook template
-    dataset = aids_df
+    dataset = mushroom_df
 
     # Get the number of unique values in each column
     unique_counts = dataset.nunique()
-
-    # Find the column names with non-unique values
-    non_unique_columns = unique_counts[unique_counts > 1].index
-
-    # Remove columns with non-unique values
-    dataset = dataset[non_unique_columns]
 
     # Check for NaN values in the DataFrame
     nan_check = dataset.isna()
@@ -113,25 +98,28 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     # Count the number of NaN values in each column
     nan_counts = nan_check.sum()
 
+    # Drop columns with too many NaNs
+    dataset = dataset.drop(["spore-print-color", "veil-color", "cap-surface", "stem-surface", "stem-root", "gill-spacing"], axis=1)
+
+    # Remove the remainder rows containing NaNs
+    dataset = dataset.dropna()
+
     # Label encode the categorical values
     label_encoder = LabelEncoder()
 
     # Define the categorical features
     categories = [
-    'cid',
-    'trt',
-    'hemo',
-    'homo',
-    'drugs',
-    'oprior',
-    'z30',
-    'race',
-    'gender',
-    'str2',
-    'strat',
-    'symptom',
-    'treat',
-    'offtrt'
+    'cap-shape',
+    'cap-color',
+    'does-bruise-or-bleed',
+    'gill-attachment',
+    'gill-color',
+    'stem-color',
+    'has-ring',
+    'ring-type',
+    'habitat',
+    'season',
+    'class'
     ]
 
     # Do the encoding per column
@@ -151,14 +139,25 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
 
     # Drop any duplicate rows
     dataset = dataset.drop_duplicates()
+    dataset.info() # Check the state of the data now
 
     # Split the dataset into data and labels
-    x = dataset.drop(["cid"], axis=1)
-    y = dataset["cid"]
+    x = dataset.drop(["class"], axis=1)
+    y = dataset["class"]
+
+    # Check the class distribution
+
+    # Count the number of instances in each class
+    class_counts = dataset['class'].value_counts()
 
     # Correct the class imbalance with SMOTE
-    smote = SMOTE(sampling_strategy='auto', random_state=seed)
+    smote = SMOTE(sampling_strategy='auto', random_state=42)
     x_resampled, y_resampled = smote.fit_resample(x, y)
+
+    # Checking the class distribution has been corrected
+
+    # Counting the number of instances in each class
+    class_counts = y_resampled.value_counts()
 
     # Get the feature names excluding class
     feature_names = [col for col in dataset.columns if col != 'cid']
@@ -166,10 +165,8 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     # Get the class labels for the dataset
     class_labels = pd.unique(y_resampled)
 
-    num_features = 22
+    num_features = 13
     num_classes = 2
-
-    
 
     explain = Explanation(feature_names, class_labels, explainers_to_use, num_features, filepath)
 
@@ -190,3 +187,5 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
 
     perform_outer_cross_validation(x_resampled, y_resampled, num_classes, num_features, seeds, num_splits_optimisation, filepath)
     explain.get_explanations(x_resampled, y_resampled, seeds, filepath, saved_state['predictions'], checkpoint, num_explanations)
+
+

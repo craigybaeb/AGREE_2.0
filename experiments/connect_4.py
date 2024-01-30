@@ -57,17 +57,28 @@ shap.explainers._deep.deep_tf.op_handlers["SplitV"] = shap.explainers._deep.deep
 
 import os
 
-def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
+def getNames():
+  X = ['a','b','c', 'd', 'e', 'f', 'g']
+  names = []
+
+  for x in X:
+    for i in range(6):
+      NAME = x + str(i)
+      names.append(NAME)
+  names.append('class')
+  return names
+
+def run_connect_4(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
     # Hyperparameters to test
     param_grid = {
         'architecture': [(64,), (128,), (32, 32), (64, 32), (64, 32, 16), (32, 16, 8), (64, 16, 8), (32, 16, 8, 4), (32, 32, 32), (16, 16)],
         'learning_rate': [0.001, 0.01, 0.0001]
     }
-
-    # Set constants
-    filepath = 'experiments/results/aids'  # Filepath for saving data
     
     tf.keras.utils.set_random_seed(seed)
+
+    # Set constants
+    filepath = 'experiments/results/connect_4'  # Filepath for saving data
 
     # Create folders to save results
     pathlib.Path(filepath).mkdir(parents=True, exist_ok=True)
@@ -80,96 +91,33 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     pathlib.Path(f'{filepath}/results/figures').mkdir(parents=True, exist_ok=True)
     pathlib.Path(f'{filepath}/results/models').mkdir(parents=True, exist_ok=True)
 
-    # Multi-class classification
-    import ssl
-    # Ignore ssl certificate verification
-    ssl._create_default_https_context = ssl._create_unverified_context
-    
-    # Fetch dataset
-    aids = fetch_ucirepo(id=890)
+    #Multi-class classification
+    connect4 = '/content/drive/My Drive/PhD/Disagreement Problem/eval/connect4/connect-4.data'
+    connect4_df = pd.read_csv(connect4, names=getNames())
 
-    # Data (as pandas dataframes)
-    x = aids.data.features
-    y = aids.data.targets
+    dataset = connect4_df
+    dataset = dataset.apply(LabelEncoder().fit_transform)
 
-    # Join the data
-    aids_df = pd.concat([x, y], axis=1)
+    x = dataset.drop("class", axis=1)
+    x = pd.get_dummies(x)
+    y = dataset["class"]
 
-    # Re-name the dataset to plug-and-play with notebook template
-    dataset = aids_df
+    # Assuming you have a DataFrame named df with a 'class_column'
+    class_counts = dataset['class'].value_counts()
 
-    # Get the number of unique values in each column
-    unique_counts = dataset.nunique()
-
-    # Find the column names with non-unique values
-    non_unique_columns = unique_counts[unique_counts > 1].index
-
-    # Remove columns with non-unique values
-    dataset = dataset[non_unique_columns]
-
-    # Check for NaN values in the DataFrame
-    nan_check = dataset.isna()
-
-    # Count the number of NaN values in each column
-    nan_counts = nan_check.sum()
-
-    # Label encode the categorical values
-    label_encoder = LabelEncoder()
-
-    # Define the categorical features
-    categories = [
-    'cid',
-    'trt',
-    'hemo',
-    'homo',
-    'drugs',
-    'oprior',
-    'z30',
-    'race',
-    'gender',
-    'str2',
-    'strat',
-    'symptom',
-    'treat',
-    'offtrt'
-    ]
-
-    # Do the encoding per column
-    for column in categories:
-        dataset[column] = label_encoder.fit_transform(dataset[column])
-
-    # Min max scale continuous features
-
-    # Initialize the MinMaxScaler
-    scaler = MinMaxScaler()
-
-    # We only want to show the continous features
-    continuous_features = [item for item in dataset.columns if item not in categories]
-
-    # Scale the continuous features
-    dataset[continuous_features] = scaler.fit_transform(dataset[continuous_features])
-
-    # Drop any duplicate rows
-    dataset = dataset.drop_duplicates()
-
-    # Split the dataset into data and labels
-    x = dataset.drop(["cid"], axis=1)
-    y = dataset["cid"]
-
-    # Correct the class imbalance with SMOTE
-    smote = SMOTE(sampling_strategy='auto', random_state=seed)
+    smote = SMOTE(sampling_strategy='auto', random_state=42)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
+    x_train, x_test, y_train, y_test = train_test_split(x_resampled, y_resampled, test_size=0.30, random_state=42, stratify=y_resampled)
+
+    num_classes = 3
+    num_features = 42
+
     # Get the feature names excluding class
-    feature_names = [col for col in dataset.columns if col != 'cid']
+    feature_names = [col for col in dataset.columns if col != 'class']
 
     # Get the class labels for the dataset
     class_labels = pd.unique(y_resampled)
-
-    num_features = 22
-    num_classes = 2
-
-    
 
     explain = Explanation(feature_names, class_labels, explainers_to_use, num_features, filepath)
 
@@ -190,3 +138,5 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
 
     perform_outer_cross_validation(x_resampled, y_resampled, num_classes, num_features, seeds, num_splits_optimisation, filepath)
     explain.get_explanations(x_resampled, y_resampled, seeds, filepath, saved_state['predictions'], checkpoint, num_explanations)
+
+

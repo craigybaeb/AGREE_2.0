@@ -75,6 +75,9 @@ def run_thyroid(seeds, num_splits_optimisation, seed, verbose, num_explanations,
         'learning_rate': [0.001, 0.01, 0.0001]
     }
 
+    # Set constants
+    filepath = 'experiments/results/thyroid'  # Filepath for saving data
+
     tf.keras.utils.set_random_seed(seed)
 
     # Create folders to save results
@@ -201,8 +204,7 @@ def run_thyroid(seeds, num_splits_optimisation, seed, verbose, num_explanations,
     num_features = 27
     num_classes = 3
 
-    # Set constants
-    filepath = 'experiments/results/thyroid'  # Filepath for saving data
+
 
     # Get the class labels for the dataset
     class_labels = pd.unique(y_resampled)

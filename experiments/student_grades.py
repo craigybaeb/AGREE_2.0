@@ -3,7 +3,6 @@
 # Explainers
 import pathlib
 import shap
-import lime
 import innvestigate # Smoothgrad, Vanilla Gradients, Input x Gradients, Layerwise Relevance Propagation, Guided Backpropagation, Deep Taylor
 from shap import DeepExplainer, GradientExplainer, PermutationExplainer, KernelExplainer
 
@@ -57,7 +56,7 @@ shap.explainers._deep.deep_tf.op_handlers["SplitV"] = shap.explainers._deep.deep
 
 import os
 
-def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
+def run_student_grades(seeds, num_splits_optimisation, seed, verbose, num_explanations, explainers_to_use):
     # Hyperparameters to test
     param_grid = {
         'architecture': [(64,), (128,), (32, 32), (64, 32), (64, 32, 16), (32, 16, 8), (64, 16, 8), (32, 16, 8, 4), (32, 32, 32), (16, 16)],
@@ -65,7 +64,7 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     }
 
     # Set constants
-    filepath = 'experiments/results/aids'  # Filepath for saving data
+    filepath = 'experiments/results/student_grades'  # Filepath for saving data
     
     tf.keras.utils.set_random_seed(seed)
 
@@ -86,26 +85,20 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     ssl._create_default_https_context = ssl._create_unverified_context
     
     # Fetch dataset
-    aids = fetch_ucirepo(id=890)
+    student = fetch_ucirepo(id=697)
 
-    # Data (as pandas dataframes)
-    x = aids.data.features
-    y = aids.data.targets
+    # Extract data
+    x = student.data.features
+    y = student.data.targets
 
     # Join the data
-    aids_df = pd.concat([x, y], axis=1)
+    student_df = pd.concat([x, y], axis=1)
 
     # Re-name the dataset to plug-and-play with notebook template
-    dataset = aids_df
+    dataset = student_df
 
     # Get the number of unique values in each column
     unique_counts = dataset.nunique()
-
-    # Find the column names with non-unique values
-    non_unique_columns = unique_counts[unique_counts > 1].index
-
-    # Remove columns with non-unique values
-    dataset = dataset[non_unique_columns]
 
     # Check for NaN values in the DataFrame
     nan_check = dataset.isna()
@@ -118,20 +111,23 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
 
     # Define the categorical features
     categories = [
-    'cid',
-    'trt',
-    'hemo',
-    'homo',
-    'drugs',
-    'oprior',
-    'z30',
-    'race',
-    'gender',
-    'str2',
-    'strat',
-    'symptom',
-    'treat',
-    'offtrt'
+    'Application mode',
+    'Application order',
+    'Course',
+    'Nacionality',
+    "Mother's qualification",
+    "Father's qualification",
+    "Mother's occupation",
+    "Father's occupation",
+    'Marital Status',
+    'Displaced',
+    'Educational special needs',
+    'Debtor',
+    'Tuition fees up to date',
+    'Gender',
+    'Scholarship holder',
+    'International',
+    'Target'
     ]
 
     # Do the encoding per column
@@ -153,23 +149,27 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
     dataset = dataset.drop_duplicates()
 
     # Split the dataset into data and labels
-    x = dataset.drop(["cid"], axis=1)
-    y = dataset["cid"]
+    x = dataset.drop(["Target"], axis=1)
+    y = dataset["Target"]
+
+    # Check the class distribution
+
+    # Count the number of instances in each class
+    class_counts = dataset['Target'].value_counts()
+
 
     # Correct the class imbalance with SMOTE
-    smote = SMOTE(sampling_strategy='auto', random_state=seed)
+    smote = SMOTE(sampling_strategy='auto', random_state=42)
     x_resampled, y_resampled = smote.fit_resample(x, y)
 
     # Get the feature names excluding class
-    feature_names = [col for col in dataset.columns if col != 'cid']
+    feature_names = [col for col in dataset.columns if col != 'Target']
 
     # Get the class labels for the dataset
     class_labels = pd.unique(y_resampled)
 
-    num_features = 22
-    num_classes = 2
-
-    
+    num_features = 36
+    num_classes = 3
 
     explain = Explanation(feature_names, class_labels, explainers_to_use, num_features, filepath)
 
@@ -190,3 +190,8 @@ def run_aids(seeds, num_splits_optimisation, seed, verbose, num_explanations, ex
 
     perform_outer_cross_validation(x_resampled, y_resampled, num_classes, num_features, seeds, num_splits_optimisation, filepath)
     explain.get_explanations(x_resampled, y_resampled, seeds, filepath, saved_state['predictions'], checkpoint, num_explanations)
+
+
+    
+
+
