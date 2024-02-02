@@ -408,8 +408,11 @@ class Explanation():
 
             if(self.include_gaussian == True):
                 for instance in data_to_explain:
-                    gaussian_perturbations.append(self.robustness.generate_gaussian_perturbations(instance, 0.01))
-
+                    i_gaussian_perturbations = []
+                    for i in range(30):
+                        i_gaussian_perturbations.append(self.robustness.generate_gaussian_perturbations(instance, 0.01))
+                    gaussian_perturbations.append(i_gaussian_perturbations)
+                    
             perturbed_predictions = []
             for i, _ in enumerate(data_to_explain):
                 instance_perturbed_predictions = model.predict(perturbations[i])
