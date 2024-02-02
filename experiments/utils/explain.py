@@ -14,12 +14,13 @@ import tensorflow as tf
 from utils.robustness import Robustness
 
 class Explanation():
-    def __init__(self, feature_names, class_labels, explainers_to_use, num_features, filepath):
+    def __init__(self, feature_names, class_labels, explainers_to_use, num_features, filepath, include_gaussian=False):
         self.feature_names = feature_names
         self.class_labels = class_labels
         self.explainers_to_use = explainers_to_use
         self.num_features = num_features
         self.filepath = filepath
+        self.include_gaussian = include_gaussian
 
         self.robustness = Robustness()
         
@@ -349,6 +350,7 @@ class Explanation():
     def get_explanations(self, X, y, seeds, filepath, repeat_predictions, checkpoint, num_explanations=50, resume=False, example_index=0):
         explanations_outer = []
         perturbed_explanations_outer = []
+        gaussian_perturbed_explanations_outer = []
         random_samples_outer = []
 
         for i, seed in enumerate(seeds):
@@ -401,6 +403,12 @@ class Explanation():
             random_samples_outer.append(random_samples)
 
             perturbations = self.robustness.generate_perturbations(data_to_explain, model, X)
+            
+            gaussian_perturbations = []
+
+            if(self.include_gaussian == True):
+                for instance in data_to_explain:
+                    gaussian_perturbations.append(self.robustness.generate_gaussian_perturbations(instance, 0.01))
 
             perturbed_predictions = []
             for i, _ in enumerate(data_to_explain):
@@ -408,9 +416,16 @@ class Explanation():
                 instance_predictions = np.array(instance_perturbed_predictions).argmax(axis=1)
                 perturbed_predictions.append(instance_predictions)
 
+            gaussian_perturbed_predictions = []
+            for i, _ in enumerate(data_to_explain):
+                gaussian_instance_perturbed_predictions = model.predict(gaussian_perturbations[i])
+                gaussian_instance_predictions = np.array(gaussian_instance_perturbed_predictions).argmax(axis=1)
+                gaussian_perturbed_predictions.append(gaussian_instance_predictions)
+
             # Create dictionaries to store the explanations
             explanations = {explainer: [] for explainer in self.explainers_to_use}
             perturbed_explanations = {explainer: [] for explainer in self.explainers_to_use}
+            gaussian_perturbed_explanations = {explainer: [] for explainer in self.explainers_to_use}
 
             for explainer in self.explainers_to_use:
                 if(explainer == "deep_shap"):
@@ -424,6 +439,9 @@ class Explanation():
                         instance_perturbed_explanations = self.get_deep_shap_explanations(X_train, perturbations[j], perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
 
+                        instance_gaussian_perturbed_explanations = self.get_deep_shap_explanations(X_train, gaussian_perturbations[j], gaussian_perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
+
                 elif(explainer == "gradient_shap"):
                     print('Getting Gradient SHAP explanations...')
                     explanations[explainer] = self.get_gradient_shap_explanations(X_train, data_to_explain, predicted_y_correct, model, self.feature_names, filepath, i, example_instance_to_explain)
@@ -434,6 +452,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_gradient_shap_explanations(X_train, perturbations[j], perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_gradient_shap_explanations(X_train, gaussian_perturbations[j], gaussian_perturbed_predictions[j], model, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "lime"):
                     print('Getting LIME explanations...')
                     explanations[explainer] = self.get_lime_explanations(X_train, data_to_explain, model, self.feature_names, self.class_labels, filepath, i, example_instance_to_explain)
@@ -444,6 +465,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_lime_explanations(X_train, perturbations[j], model, self.feature_names, self.class_labels, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_lime_explanations(X_train, gaussian_perturbations[j], model, self.feature_names, self.class_labels, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "kernel_shap"):
                     print('Getting Kernel SHAP explanations...')
                     explanations[explainer] = self.get_kernel_shap_explanations(X_train, data_to_explain, predict_function, self.feature_names, filepath, i, example_instance_to_explain)
@@ -454,6 +478,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_kernel_shap_explanations(X_train, perturbations[j], predict_function, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_kernel_shap_explanations(X_train, gaussian_perturbations[j], predict_function, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "maple"):
                     print('Getting MAPLE explanations...')
                     explanations[explainer] = self.get_maple_explanations(X_train, data_to_explain, predict_function, self.feature_names, filepath, i, example_instance_to_explain)
@@ -464,6 +491,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_maple_explanations(X_train, perturbations[j], predict_function, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_maple_explanations(X_train, gaussian_perturbations[j], predict_function, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "smoothgrad"):
                     print('Getting Smoothgrad explanations...')
                     explanations[explainer] = self.get_smoothgrad_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -474,6 +504,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_smoothgrad_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_smoothgrad_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "vanilla_gradients"):
                     print('Getting Vanilla Gradients explanations...')
                     explanations[explainer] = self.get_vanilla_gradients_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -484,6 +517,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_vanilla_gradients_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_vanilla_gradients_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "guided_backpropagation"):
                     print('Getting Guided Backpropagation explanations...')
                     explanations[explainer] = self.get_guided_backpropagation_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -494,6 +530,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_guided_backpropagation_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_guided_backpropagation_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "layerwise_relevance_propagation"):
                     print('Getting Layerwise Relevance Propagation explanations...')
                     explanations[explainer] = self.get_layerwise_relevance_propagation_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -504,6 +543,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_layerwise_relevance_propagation_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, perturbed=True, show=show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_layerwise_relevance_propagation_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, perturbed=True, show=show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "gradients_x_input"):
                     print('Getting Gradients x Input explanations...')
                     explanations[explainer] = self.get_gradients_x_input_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -514,6 +556,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_gradients_x_input_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_gradients_x_input_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "deep_taylor"):
                     print('Getting Deep Taylor Decomposition explanations...')
                     explanations[explainer] = self.get_deep_taylor_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -524,6 +569,9 @@ class Explanation():
                             show = False
                         instance_perturbed_explanations = self.get_deep_taylor_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
+
+                        instance_gaussian_perturbed_explanations = self.get_deep_taylor_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, True, show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
                 elif(explainer == "integrated_gradients"):
                     print('Getting Integrated Gradients explanations...')
                     explanations[explainer] = self.get_integrated_gradients_explanations(data_to_explain, model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain)
@@ -535,13 +583,18 @@ class Explanation():
                         instance_perturbed_explanations = self.get_integrated_gradients_explanations(perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, perturbed=True, show=show)
                         perturbed_explanations[explainer].append(instance_perturbed_explanations)
 
+                        instance_gaussian_perturbed_explanations = self.get_integrated_gradients_explanations(gaussian_perturbations[j], model_without_softmax, self.feature_names, filepath, i, example_instance_to_explain, perturbed=True, show=show)
+                        gaussian_perturbed_explanations[explainer].append(instance_gaussian_perturbed_explanations)
+
             explanations_outer.append(explanations)
             perturbed_explanations_outer.append(perturbed_explanations)
+            gaussian_perturbed_explanations_outer.append(gaussian_perturbed_explanations)
 
             data_to_save = {
                 'checkpoint': i,
                 'explanations': explanations_outer,
                 'perturbed_explanations': perturbed_explanations_outer,
+                'gaussian_perturbed_explanations': gaussian_perturbed_explanations_outer,
                 'random_samples': random_samples_outer
             }
 

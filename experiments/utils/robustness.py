@@ -124,6 +124,18 @@ class Robustness:
         plt.show()
 
         return
+    
+    def generate_gaussian_perturbations(self, original_input, perturbation_radius):
+        # This function adds small perturbations to the original input
+        return original_input + np.random.uniform(-perturbation_radius, perturbation_radius, original_input.shape)
+
+    def calculate_sensitivity(self, original_explanation, perturbed_explanations):
+        max_difference = 0
+        for perturbation in perturbed_explanations:
+            distance = distance.euclidean(original_explanation, perturbation)
+            max_difference = max(max_difference, distance)
+        
+        return max_difference
 
 
         
