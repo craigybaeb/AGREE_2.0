@@ -400,7 +400,7 @@ class Explanation():
                 data_to_explain = data_to_explain[random_row_indices, :]
                 predicted_y_correct[random_row_indices]
 
-            random_samples_outer.append(random_samples)
+            random_samples_outer.append(data_to_explain)
 
             perturbations = self.robustness.generate_perturbations(data_to_explain, model, X)
             
@@ -612,7 +612,9 @@ class Explanation():
                 'explanations': explanations_outer,
                 'perturbed_explanations': perturbed_explanations_outer,
                 'gaussian_perturbed_explanations': gaussian_perturbed_explanations_outer,
-                'random_samples': random_samples_outer
+                'random_samples': random_samples_outer, # The X_test_correct capped to 50
+                'perturbed_inputs:' : perturbations
+        
             }
 
             self.save_explanation_state(data_to_save, filepath)
