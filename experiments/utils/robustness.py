@@ -106,9 +106,15 @@ class Robustness:
 
         return
     
-    def generate_gaussian_perturbations(self, original_input, perturbation_radius):
+    def generate_gaussian_perturbations(self, original_input, perturbation_radius, categorical_features = []):
         # This function adds small perturbations to the original input
-        return original_input + np.random.uniform(-perturbation_radius, perturbation_radius, original_input.shape)
+        perturbation = original_input + np.random.uniform(-perturbation_radius, perturbation_radius, original_input.shape)
+
+        # Reset categorical features to original to ensure in distribution
+        for cat in categorical_features:
+            perturbation[cat] = original_input[cat]
+
+        return perturbation
 
     def calculate_sensitivity(self, original_explanation, perturbed_explanations):
         max_difference = 0
