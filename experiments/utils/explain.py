@@ -14,14 +14,14 @@ import tensorflow as tf
 from utils.robustness import Robustness
 
 class Explanation():
-    def __init__(self, feature_names, class_labels, explainers_to_use, num_features, filepath, categortical_columns = [], include_gaussian=False):
+    def __init__(self, feature_names, class_labels, explainers_to_use, num_features, filepath, categorical_columns = [], include_gaussian=False):
         self.feature_names = feature_names
         self.class_labels = class_labels
         self.explainers_to_use = explainers_to_use
         self.num_features = num_features
         self.filepath = filepath
         self.include_gaussian = include_gaussian
-        self.categorical_columns = categortical_columns
+        self.categorical_columns = categorical_columns
 
         self.robustness = Robustness()
         
