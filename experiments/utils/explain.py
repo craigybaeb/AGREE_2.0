@@ -352,6 +352,13 @@ class Explanation():
         explanations_outer = []
         perturbed_explanations_outer = []
         gaussian_perturbed_explanations_outer = []
+
+        gaussian_perturbed_inputs_outer = []
+        perturbed_inputs_outer = []
+
+        gaussian_perturbed_probas_outer = []
+        perturbed_probas_outer = []
+
         random_samples_outer = []
 
         for i, seed in enumerate(seeds):
@@ -404,7 +411,8 @@ class Explanation():
             random_samples_outer.append(data_to_explain)
 
             perturbations = self.robustness.generate_perturbations(data_to_explain, model, X, self.categorical_columns)
-            
+            perturbed_inputs_outer.append(perturbations)
+
             gaussian_perturbations = []
 
             if(self.include_gaussian == True):
@@ -414,19 +422,28 @@ class Explanation():
                         i_gaussian_perturbations.append(self.robustness.generate_gaussian_perturbations(instance, 0.01, self.categorical_columns))
                     gaussian_perturbations.append(i_gaussian_perturbations)
                 gaussian_perturbations = np.array(gaussian_perturbations)
+                gaussian_perturbed_inputs_outer.append(gaussian_perturbations)
 
             perturbed_predictions = []
+            perturbed_probas = []
             for i, _ in enumerate(data_to_explain):
                 instance_perturbed_predictions = model.predict(perturbations[i])
-                instance_predictions = np.array(instance_perturbed_predictions).argmax(axis=1)
+                instance_probas = np.array(instance_perturbed_predictions)
+                instance_predictions = instance_probas.argmax(axis=1)
                 perturbed_predictions.append(instance_predictions)
+                perturbed_probas.append(instance_probas)
+            perturbed_probas_outer.appemnd(perturbed_probas)
 
             if(self.include_gaussian):
                 gaussian_perturbed_predictions = []
+                gaussian_perturbed_probas = []
                 for i, _ in enumerate(data_to_explain):
                     gaussian_instance_perturbed_predictions = model.predict(gaussian_perturbations[i])
-                    gaussian_instance_predictions = np.array(gaussian_instance_perturbed_predictions).argmax(axis=1)
+                    gaussian_instance_probas = np.array(gaussian_instance_perturbed_predictions)
+                    gaussian_instance_predictions = gaussian_instance_probas.argmax(axis=1)
                     gaussian_perturbed_predictions.append(gaussian_instance_predictions)
+                    gaussian_perturbed_probas.append(gaussian_instance_probas)
+                gaussian_perturbed_probas_outer.append(gaussian_perturbed_probas)
 
             # Create dictionaries to store the explanations
             explanations = {explainer: [] for explainer in self.explainers_to_use}
@@ -614,7 +631,10 @@ class Explanation():
                 'perturbed_explanations': perturbed_explanations_outer,
                 'gaussian_perturbed_explanations': gaussian_perturbed_explanations_outer,
                 'random_samples': random_samples_outer, # The X_test_correct capped to 50
-                'perturbed_inputs:' : perturbations
+                'perturbed_inputs' : perturbed_inputs_outer,
+                'gaussian_perturbed_inputs': gaussian_perturbed_inputs_outer,
+                'gaussian_probas': gaussian_perturbed_probas_outer,
+                'perturbed_probas': perturbed_probas_outer
         
             }
 
