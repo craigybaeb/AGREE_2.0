@@ -273,6 +273,7 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
     models = []
     matrices = []
     model_histories = []
+    data = []
     splits = []
     preds_outer = []
     outer_fold = 1
@@ -292,6 +293,7 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
         splits = saved_state["data_splits"]
         preds_outer = saved_state["predictions"]
         train_scores_outer = saved_state["train_scores"]
+        data = saved_state["data"]
 
 
     # Perform the grid search
@@ -375,6 +377,8 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
             filepath
         )
 
+        data.append((x_train, y_train, x_test, y_test))
+        
         # Create a dictionary of all items to be saved
         data_to_save = {
             "accuracy_scores": accuracy_scores,
@@ -389,7 +393,7 @@ def perform_outer_cross_validation(X, y, num_classes, num_features, seeds, num_s
             "predictions": preds_outer,
             "matrices": matrices,
             "outer_fold": outer_fold,
-            "data": (x_train, y_train, x_test, y_test)
+            "data": data
         }
 
         # Save data to a file
