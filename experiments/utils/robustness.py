@@ -72,7 +72,7 @@ class Robustness:
             nn_nun = NearestNeighbors(n_neighbors=len(like_data) - 2)
             nn_nun.fit(farthest_neighbors)
 
-            n_nun_distances, nn_nun_indices = nn_nun.kneighbors(nun_instance.reshape(1,-1))
+            nn_nun_distances, nn_nun_indices = nn_nun.kneighbors(nun_instance.reshape(1,-1))
 
             nn_nun_distances = nn_nun_distances[0][1:]
             nn_nun_indices = nn_nun_indices[0][1:]
