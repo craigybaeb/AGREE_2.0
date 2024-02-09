@@ -44,18 +44,44 @@ class Robustness:
 
             # Separate instances by class, excluding the class of the instance to explain
             unlike_data = [X[i] for i in range(len(X)) if y_pred_classes[i] != instance_class]
+            like_data = [X[i] for i in range(len(X)) if y_pred_classes[i] == instance_class]
 
             # Initialize NearestNeighbors for unlike data
             nun = NearestNeighbors(n_neighbors=len(unlike_data))
             nun.fit(unlike_data)
 
-            # Find the nearest unlike neighbor
+            # Initialize NearestNeighbors for like data
+            nn = NearestNeighbors(n_neighbors=len(like_data))
+            nn.fit(like_data)
+
+             # Find the nearest unlike neighbor
             _, nun_indices = nun.kneighbors(dte.reshape(1, -1))
             nun_idx = nun_indices[0][0]
             nun_instance = unlike_data[nun_idx]
 
+            # Find 5 nearest neighbors
+            distances, indices = nn.kneighbors(dte.reshape(1,-1))
+
+            distances = distances[0][1:]
+            indices = indices[0][1:]
+
+            # The farthest of the 5 nearest neighbors
+            farthest_neighbor_idx = indices
+            farthest_neighbors = [like_data[i] for i in farthest_neighbor_idx]
+
+            nn_nun = NearestNeighbors(n_neighbors=len(like_data) - 2)
+            nn_nun.fit(farthest_neighbors)
+
+            n_nun_distances, nn_nun_indices = nn_nun.kneighbors(nun_instance.reshape(1,-1))
+
+            nn_nun_distances = nn_nun_distances[0][1:]
+            nn_nun_indices = nn_nun_indices[0][1:]
+
+            nn_nun_idx = nn_nun_indices[0]
+            nn_nun_instance = farthest_neighbors[nn_nun_idx]
+
             # Generate linear perturbations between the instance to explain and its nearest unlike neighbor
-            perturbations = self.linear_interpolate(dte, nun_instance, num_perturbations, categorical_columns)
+            perturbations = self.linear_interpolate(dte, nn_nun_instance, num_perturbations, categorical_columns)
             perturbed_instances.append(perturbations)
 
         return perturbed_instances
