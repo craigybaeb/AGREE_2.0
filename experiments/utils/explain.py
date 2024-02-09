@@ -410,7 +410,7 @@ class Explanation():
 
             random_samples_outer.append(data_to_explain)
 
-            perturbations = self.robustness.generate_perturbations(data_to_explain, model, X, self.categorical_columns)
+            perturbations = self.robustness.generate_perturbations(data_to_explain, model, X, 30, self.categorical_columns)
             perturbed_inputs_outer.append(perturbations)
 
             gaussian_perturbations = []
@@ -432,7 +432,7 @@ class Explanation():
                 instance_predictions = instance_probas.argmax(axis=1)
                 perturbed_predictions.append(instance_predictions)
                 perturbed_probas.append(instance_probas)
-            perturbed_probas_outer.appemnd(perturbed_probas)
+            perturbed_probas_outer.append(perturbed_probas)
 
             if(self.include_gaussian):
                 gaussian_perturbed_predictions = []
