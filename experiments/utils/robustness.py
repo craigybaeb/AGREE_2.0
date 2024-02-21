@@ -42,49 +42,52 @@ class Robustness:
             # Get the class of the instance to explain
             instance_class = model.predict(dte.reshape(1, -1)).argmax()
 
-            # Separate instances by class, excluding the class of the instance to explain
-            unlike_data = [X[i] for i in range(len(X)) if y_pred_classes[i] != instance_class]
-            like_data = [X[i] for i in range(len(X)) if y_pred_classes[i] == instance_class]
-
-            # Initialize NearestNeighbors for unlike data
-            nun = NearestNeighbors(n_neighbors=len(unlike_data))
-            nun.fit(unlike_data)
-
-            # Initialize NearestNeighbors for like data
-            nn = NearestNeighbors(n_neighbors=len(like_data))
-            nn.fit(like_data)
-
-             # Find the nearest unlike neighbor
-            _, nun_indices = nun.kneighbors(dte.reshape(1, -1))
-            nun_idx = nun_indices[0][0]
-            nun_instance = unlike_data[nun_idx]
-
-            # Find 5 nearest neighbors
-            distances, indices = nn.kneighbors(dte.reshape(1,-1))
-
-            distances = distances[0][1:]
-            indices = indices[0][1:]
-
-            # The farthest of the 5 nearest neighbors
-            farthest_neighbor_idx = indices
-            farthest_neighbors = [like_data[i] for i in farthest_neighbor_idx]
-
-            nn_nun = NearestNeighbors(n_neighbors=len(like_data) - 2)
-            nn_nun.fit(farthest_neighbors)
-
-            nn_nun_distances, nn_nun_indices = nn_nun.kneighbors(nun_instance.reshape(1,-1))
-
-            nn_nun_distances = nn_nun_distances[0][1:]
-            nn_nun_indices = nn_nun_indices[0][1:]
-
-            nn_nun_idx = nn_nun_indices[0]
-            nn_nun_instance = farthest_neighbors[nn_nun_idx]
+            nun_instance = self.get_nearest_unlike_neighbour(instance_class, dte, X, y_pred_classes)
+            fln_instance = self.get_farthest_like_neighbour(instance_class, nun_instance, dte, X, y_pred_classes)
 
             # Generate linear perturbations between the instance to explain and its nearest unlike neighbor
-            perturbations = self.linear_interpolate(dte, nn_nun_instance, num_perturbations, categorical_columns)
+            perturbations = self.linear_interpolate(dte, fln_instance, num_perturbations, categorical_columns)
             perturbed_instances.append(perturbations)
 
         return perturbed_instances
+
+    def get_farthest_like_neighbour(self, instance_class, nearest_unlike_neighbour, data_to_explain, X, classes):
+        like_data = [X[i] for i in range(len(X)) if classes[i] == instance_class]
+
+        # Initialize NearestNeighbors for like data
+        nn = NearestNeighbors(n_neighbors=len(like_data))
+        nn.fit(like_data)
+
+        fln_distances, fln_indices = nn.kneighbors(nearest_unlike_neighbour.reshape(1,-1))
+
+        fln_distances = fln_distances[0][1:]
+        fln_indices = fln_indices[0][1:]
+
+        fln_idx = fln_indices[0]
+        fln_instance = np.array(like_data[fln_idx])
+
+        idx = 1 # Query the same so enter while loop
+        while(np.array_equal(fln_instance, data_to_explain)):
+            fln_idx = fln_indices[idx] # get next instance
+            idx += 1 # Continue getting next instance if the same
+            fln_instance = np.array(like_data[fln_idx])
+
+        return fln_instance
+        
+    def get_nearest_unlike_neighbour(self, instance_class, data_to_explain, X, classes):
+        # Separate instances by class, excluding the class of the instance to explain
+        unlike_data = [X[i] for i in range(len(X)) if classes[i] != instance_class]
+
+        # Initialize NearestNeighbors for unlike data
+        nun = NearestNeighbors(n_neighbors=len(unlike_data))
+        nun.fit(unlike_data)
+
+        # Find the nearest unlike neighbor
+        _, nun_indices = nun.kneighbors(data_to_explain.reshape(1, -1))
+        nun_idx = nun_indices[0][1] #Replace with 1????
+        nun_instance = unlike_data[nun_idx]
+
+        return nun_instance
 
     def kendall_tau_distance(self, values1, values2):
         n = len(values1)
@@ -162,7 +165,3 @@ class Robustness:
                 numeric_distance = pow(abs(feature - perturbation[i]), r) / ranges[i]
                 distance += numeric_distance
         return distance / len(query)
-
-
-        
-
